@@ -1,15 +1,14 @@
-# Header
-# ----------------------------------------------------------------------------------------------------------
+# Header ----------------------------------------------------------------------
 #' atcd.R
 #' ---
-#' Scrapes the ATC data from https://www.whocc.no/atc_ddd_index/.
 #'
-#' By Fabrício Kury
-#' File started on 2020/3/20 5:08.
-#' Margin column at 120 characters.
-#'
-## Globals
-## ---------------------------------------------------------------------------------------------------------
+#' Usage:
+#'     git clone https://github.com/fabkury/atcd.git
+#'     R
+#'     > install.packages("pacman")
+#'     Rscript ./atcd.R
+
+# Globals ---------------------------------------------------------------------
 pacman::p_load(rvest)
 pacman::p_load(dplyr)
 pacman::p_load(readr)
@@ -25,21 +24,28 @@ ensureDir <- function(...) {
 
 out_dir <- ensureDir("Out")
 rds_dir <- ensureDir(paste0(out_dir, "rds"))
-global_rds_override <- FALSE  # Set this to TRUE to force the script to forget all prior runs and start again from zero.
+global_rds_override <- FALSE # Set this to TRUE to force the script to
+# forget all prior runs and start again
+# from zero.
 
-options(expressions = 1e+05)  # Allow deep recursion.
+options(expressions = 100000) # Allow deep recursion.
 
-wrapRDS <- function(var, exprs, ovr = global_rds_override, by_name = FALSE, pass_val = FALSE,
-    assign_val = TRUE) {
-    #' This is a handy function to store variables between runs of the code and skip recreating them.
-    #' It checks if an RDS file for var already exists in rds_dir. If it does, read it from there. If
+wrapRDS <- function(var, exprs, ovr = global_rds_override, by_name = FALSE, pass_val = FALSE, assign_val = TRUE) {
+    #' This is a handy function to store variables between runs of the
+    #' code and skip recreating them.  It checks if an RDS file for var
+    #' already exists in rds_dir.  If it does, read it from there.  If
     #' it does not, evaluates exprs and saves it to such RDS file.
-    #' var: The object itself, unquoted, or a character vector containing its name.
-    #' exprs: Expression to be evaluated if the RDS file doesn't already exist.
-    #' by_name: If true, var is interpreted as a character vector with the object name.
+    #' var: The object itself, unquoted, or a character vector containing
+    #'      its name.
+    #' exprs: Expression to be evaluated if the RDS file doesn't already
+    #'        exist.
+    #' by_name: If true, var is interpreted as a character vector with
+    #'          the object name.
     #' pass_val: If true, will return the object at the end.
-    #' assign_val: If true, will assign the value of the object to its name in the calling envirmt.
-    #' ovr: If true, will ignore existing RDS files and always evaluate exprs.
+    #' assign_val: If true, will assign the value of the object to its
+    #'             name in the calling envirmt.
+    #' ovr: If true, will ignore existing RDS files and always evaluate
+    #'      exprs.
     if (by_name) {
         varname <- var
     } else {
@@ -57,10 +63,12 @@ wrapRDS <- function(var, exprs, ovr = global_rds_override, by_name = FALSE, pass
         } else {
             # Evaluate the expression in a temporary environment, akin to a
             # function call.  TODO: Revise if I need to create a new
-            # environment using new.env(). Is this function's own environment
-            # enough?
+            # environment using new.env(). Is this function's own
+            # environment enough?
             message("Building ", varname, ".")
-            var_val <- eval(substitute(exprs), envir = new.env(parent = parent.frame(n = 1)))
+            var_val <- eval(substitute(exprs),
+                envir = new.env(parent = parent.frame(n = 1))
+            )
             message(varname, " completed. Saving to file '", rds_file, "'... ")
             if (!dir.exists(rds_dir)) {
                 dir.create(rds_dir, recursive = T)
@@ -79,11 +87,15 @@ wrapRDS <- function(var, exprs, ovr = global_rds_override, by_name = FALSE, pass
 }
 
 getRDS <- function(var, by_name = FALSE, pass_val = FALSE, assign_val = TRUE) {
-    #' In connection to wrapRDS, this function only loads the RDS file, or raises an error if unable to.
-    #' var: The object itself, unquoted, or a character vector containing its name.
-    #' by_name: If true, var is interpreted as a character vector with the object name.
+    #' In connection to wrapRDS, this function only loads the RDS file,
+    #' or raises an error if unable to.
+    #' var: The object itself, unquoted, or a character vector
+    #'      containing its name.
+    #' by_name: If true, var is interpreted as a character vector with
+    #'          the object name.
     #' pass_val: If true, will return the object at the end.
-    #' assign_val: If true, will assign the value of the object to its name in the calling envirmt.
+    #' assign_val: If true, will assign the value of the object to its
+    #'             name in the calling envirmt.
     if (by_name) {
         varname <- var
     } else {
@@ -114,7 +126,8 @@ getRDS <- function(var, by_name = FALSE, pass_val = FALSE, assign_val = TRUE) {
 }
 
 # The script will retrieve all ATC roots in atc_roots. Remember that
-# for each root all subcodes will be retrieved. 
+# for each root all subcodes will be retrieved.
+
 # A 	Alimentary tract and metabolism
 # B 	Blood and blood forming organs
 # C 	Cardiovascular system
@@ -128,22 +141,23 @@ getRDS <- function(var, by_name = FALSE, pass_val = FALSE, assign_val = TRUE) {
 # P 	Antiparasitic products, insecticides and repellents
 # R 	Respiratory system
 # S 	Sensory organs
-# V 	Various 
-atc_roots <- c("A", "B", "C", "D", "G", "H", "J", "L", "M", "N", "P", "R", "S", "V")
+# V 	Various
+atc_roots <- c(
+    "A", "B", "C", "D", "G", "H", "J",
+    "L", "M", "N", "P", "R", "S", "V"
+)
 
 
-# Scrape data
-# -----------------------------------------------------------------------------------------------------
+# Scrape data -----------------------------------------------------------------
 scrape_who_atc <- function(root_atc_code) {
-    # This function scrapes and returns a tibble with all data available from
-    # https://www.whocc.no/atc_ddd_index/ for the given ATC code and all its
-    # subcodes.
+    # This function scrapes and returns a tibble with all data available
+    # from https://www.whocc.no/atc_ddd_index/ for the given ATC code
+    # and all its subcodes.
     if (length(root_atc_code) != 1) {
         stop("scrape_who_atc() only accepts single objects, not vectors. Please provide a single valid ATC code as input.")
     }
 
-    web_address <- paste0("https://www.whocc.no/atc_ddd_index/?code=", root_atc_code,
-        "&showdescription=no")
+    web_address <- paste0("https://www.whocc.no/atc_ddd_index/?code=", root_atc_code, "&showdescription=no")
     message("Scraping ", web_address, ".")
     atc_code_length <- nchar(root_atc_code)
     html_data <- read_html(web_address)
@@ -164,8 +178,7 @@ scrape_who_atc <- function(root_atc_code) {
             atc_codes <- sub("^([A-Z]\\S*) (.*)", "\\1", scraped_string)
             atc_names <- sub("^([A-Z]\\S*) (.*)", "\\2", scraped_string)
             t1 <- tibble(atc_code = atc_codes, atc_name = atc_names)
-            t2 <- lapply(atc_codes, scrape_who_atc) %>%
-                bind_rows()
+            t2 <- lapply(atc_codes, scrape_who_atc) %>% bind_rows()
             bind_rows(t1, t2)
         }) %>%
             bind_rows()
@@ -174,10 +187,12 @@ scrape_who_atc <- function(root_atc_code) {
         if (atc_code_length == 1) {
             root_atc_code_name <- html_data %>%
                 html_nodes(css = "#content a") %>%
-                nth(3) %>%
-                html_text()
-            return(bind_rows(tibble(atc_code = root_atc_code, atc_name = root_atc_code_name),
-                tval))
+                html_text() %>% # was after and failing because expecting a
+                # vector; not an xml_node
+                nth(3) # was before, we can safely select the xml_node of
+            # interest after applying the html_text() to all the
+            # nodes in the vector returned by html_nodes()
+            return(bind_rows(tibble(atc_code = root_atc_code, atc_name = root_atc_code_name), tval))
         } else {
             return(tval)
         }
@@ -185,24 +200,23 @@ scrape_who_atc <- function(root_atc_code) {
         html_node(html_data, xpath = "//ul/table") %>%
             (function(sdt) {
                 if (class(sdt) == "xml_missing") {
-                  return(NULL)
+                    return(NULL)
                 }
                 retval <- sdt %>%
-                  html_table(header = TRUE) %>%
-                  rename(atc_code = `ATC code`, atc_name = Name, ddd = DDD, uom = U,
-                    adm_r = Adm.R, note = Note) %>%
-                  mutate_all(~ifelse(. == "", NA, .))
+                    html_table(header = TRUE) %>%
+                    rename(atc_code = `ATC code`, atc_name = Name, ddd = DDD, uom = U, adm_r = `Adm.R`, note = Note) %>%
+                    mutate_all(~ ifelse(. == "", NA, .))
                 # The table on the website does not repeat atc_code and
                 # atc_name in subsequent rows when that ATC code has more than
                 # one ddd/uom/adm_r. Let's fill-in the blanks when that is the
                 # case.
                 if (nrow(retval) > 1) {
-                  for (i in 2:nrow(retval)) {
-                    if (is.na(retval$atc_code[i])) {
-                      retval$atc_code[i] <- retval$atc_code[i - 1]
-                      retval$atc_name[i] <- retval$atc_name[i - 1]
+                    for (i in 2:nrow(retval)) {
+                        if (is.na(retval$atc_code[i])) {
+                            retval$atc_code[i] <- retval$atc_code[i - 1]
+                            retval$atc_name[i] <- retval$atc_name[i - 1]
+                        }
                     }
-                  }
                 }
                 return(retval)
             }) %>%
@@ -217,8 +231,7 @@ for (atc_root in atc_roots) {
 }
 
 
-# Write results to storage
-# ----------------------------------------------------------------------------------------
+# Write results to storage ----------------------------------------------------
 # Read the files produced by scrape_who_atc().
 who_atc <- paste0("who_atc_", atc_roots) %>%
     lapply(getRDS, by_name = TRUE, assign_val = FALSE, pass_val = TRUE) %>%
@@ -235,6 +248,5 @@ paste0(out_dir, "/WHO ATC-DDD ", format(Sys.Date(), "%Y-%m-%d"), ".csv") %>%
     })
 
 
-# Finish execution
-# ------------------------------------------------------------------------------------------------
+# Finish execution ------------------------------------------------------------
 message("Script execution completed.")
